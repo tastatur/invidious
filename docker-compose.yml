@@ -1,42 +1,47 @@
 version: '3'
 services:
   postgres:
-    image: postgres:10
+    image: postgres:13
     restart: unless-stopped
     volumes:
-      - postgresdata:/var/lib/postgresql/data
+      - /mnt/cache/docker-volumes/invidious/postgres:/var/lib/postgresql/data
+      - /home/strah/docker-volumes/invidious/postgres-videos:/var/lib/postgresql/data-videos
       - ./config/sql:/config/sql
       - ./docker/init-invidious-db.sh:/docker-entrypoint-initdb.d/init-invidious-db.sh
-    environment:
-      POSTGRES_DB: invidious
-      POSTGRES_PASSWORD: kemal
-      POSTGRES_USER: kemal
+    env_file:
+      - invidious.env
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+    networks:
+      - backend
   invidious:
     build:
       context: .
       dockerfile: docker/Dockerfile
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3000:3000"
+    networks:
+      - backend
+      - hetzner-cloud_frontend
+    env_file:
+      - invidious.env
     environment:
-      # Adapted from ./config/config.yml
-      INVIDIOUS_CONFIG: |
-        channel_threads: 1
-        check_tables: true
-        feed_threads: 1
-        db:
-          user: kemal
-          password: kemal
-          host: postgres
-          port: 5432
-          dbname: invidious
-        full_refresh: false
-        https_only: false
-        domain:
+       INVIDIOUS_CONFIG: |
+         channel_threads: 1
+         check_tables: true
+         feed_threads: 1
+         db:
+           dbname: changeme
+           user: changeme
+           password: changeme
+           host: postgres
+           port: 5432
+         full_refresh: false
+         external_port: 443
+         https_only: true
+         domain: changeme
     depends_on:
       - postgres
-
-volumes:
-  postgresdata:
+networks:
+  backend:
+  hetzner-cloud_frontend:
+     external: true
