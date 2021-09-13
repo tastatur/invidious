@@ -2,7 +2,6 @@
 
 -- DROP TABLE public.videos;
 
-CREATE TABLESPACE videosspace LOCATION '/var/lib/postgresql/data-videos';
 
 CREATE TABLE public.videos 
 (
@@ -10,7 +9,7 @@ CREATE TABLE public.videos
   info text,
   updated timestamp with time zone,
   CONSTRAINT videos_pkey PRIMARY KEY (id)
-) TABLESPACE videosspace;
+);
 
 GRANT ALL ON TABLE public.videos TO kemal;
 
@@ -21,5 +20,5 @@ GRANT ALL ON TABLE public.videos TO kemal;
 CREATE UNIQUE INDEX id_idx
   ON public.videos
   USING btree
-  (id COLLATE pg_catalog."default") TABLESPACE videosspace;
+  (id COLLATE pg_catalog."default");
 

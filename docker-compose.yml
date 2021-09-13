@@ -5,7 +5,6 @@ services:
     restart: unless-stopped
     volumes:
       - /mnt/cache/docker-volumes/invidious/postgres:/var/lib/postgresql/data
-      - /home/strah/docker-volumes/invidious/postgres-videos:/var/lib/postgresql/data-videos
       - ./config/sql:/config/sql
       - ./docker/init-invidious-db.sh:/docker-entrypoint-initdb.d/init-invidious-db.sh
     env_file:
@@ -26,6 +25,7 @@ services:
       - invidious.env
     environment:
        INVIDIOUS_CONFIG: |
+         registration_enabled: true
          channel_threads: 1
          check_tables: true
          feed_threads: 1

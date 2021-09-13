@@ -7,7 +7,7 @@ CREATE TABLE public.nonces
   nonce text,
   expire timestamp with time zone,
   CONSTRAINT nonces_id_key UNIQUE (nonce)
-) TABLESPACE videosspace;
+);
 
 GRANT ALL ON TABLE public.nonces TO kemal;
 
@@ -18,5 +18,5 @@ GRANT ALL ON TABLE public.nonces TO kemal;
 CREATE INDEX nonces_nonce_idx
   ON public.nonces
   USING btree
-  (nonce COLLATE pg_catalog."default") TABLESPACE videosspace;
+  (nonce COLLATE pg_catalog."default");
 
