@@ -39,6 +39,7 @@ services:
          external_port: 443
          https_only: true
          domain: changeme
+         cache_annotations: true
     depends_on:
       - postgres
 networks:
