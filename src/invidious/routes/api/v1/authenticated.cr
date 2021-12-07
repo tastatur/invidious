@@ -274,7 +274,10 @@ module Invidious::Routes::API::V1::Authenticated
 
     env.response.headers["Location"] = "#{HOST_URL}/api/v1/auth/playlists/#{plid}/videos/#{playlist_video.index.to_u64.to_s(16).upcase}"
     env.response.status_code = 201
-    playlist_video.to_json(locale, index: playlist.index.size)
+
+    JSON.build do |json|
+      playlist_video.to_json(json, index: playlist.index.size)
+    end
   end
 
   def self.delete_video_in_playlist(env)
@@ -335,11 +338,11 @@ module Invidious::Routes::API::V1::Authenticated
 
     case env.request.headers["Content-Type"]?
     when "application/x-www-form-urlencoded"
-      scopes = env.params.body.select { |k, v| k.match(/^scopes\[\d+\]$/) }.map { |k, v| v }
+      scopes = env.params.body.select { |k, _| k.match(/^scopes\[\d+\]$/) }.map { |_, v| v }
       callback_url = env.params.body["callbackUrl"]?
       expire = env.params.body["expire"]?.try &.to_i?
     when "application/json"
-      scopes = env.params.json["scopes"].as(Array).map { |v| v.as_s }
+      scopes = env.params.json["scopes"].as(Array).map(&.as_s)
       callback_url = env.params.json["callbackUrl"]?.try &.as(String)
       expire = env.params.json["expire"]?.try &.as(Int64)
     else

@@ -53,7 +53,13 @@ module Invidious::Routes::Login
 
       # See https://github.com/ytdl-org/youtube-dl/blob/2019.04.07/youtube_dl/extractor/youtube.py#L82
       begin
-        client = QUIC::Client.new(LOGIN_URL)
+        client = nil # Declare variable
+        {% unless flag?(:disable_quic) %}
+          client = CONFIG.use_quic ? QUIC::Client.new(LOGIN_URL) : HTTP::Client.new(LOGIN_URL)
+        {% else %}
+          client = HTTP::Client.new(LOGIN_URL)
+        {% end %}
+
         headers = HTTP::Headers.new
 
         login_page = client.get("/ServiceLogin")
@@ -395,7 +401,7 @@ module Invidious::Routes::Login
             return templated "login"
           end
 
-          tokens = env.params.body.select { |k, v| k.match(/^token\[\d+\]$/) }.map { |k, v| v }
+          tokens = env.params.body.select { |k, _| k.match(/^token\[\d+\]$/) }.map { |_, v| v }
 
           answer ||= ""
           captcha_type ||= "image"
@@ -419,7 +425,7 @@ module Invidious::Routes::Login
 
             found_valid_captcha = false
             error_exception = Exception.new
-            tokens.each_with_index do |token, i|
+            tokens.each do |token|
               begin
                 validate_request(token, answer, env.request, HMAC_KEY, PG_DB, locale)
                 found_valid_captcha = true

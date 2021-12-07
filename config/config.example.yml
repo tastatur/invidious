@@ -157,10 +157,14 @@ https_only: false
 ## Note 2: Using QUIC prevents some captcha challenges from appearing.
 ## See: https://github.com/iv-org/invidious/issues/957#issuecomment-576424042
 ##
-## Accepted values: true, false
-## Default: true
+## Note 3: As of 2021-11-12, Google seems to have disabled QUIC on
+## their servers. The default has been changed to 'false'.Read more
+## at: https://github.com/iv-org/invidious/issues/2577
 ##
-#use_quic: true
+## Accepted values: true, false
+## Default: false
+##
+#use_quic: false
 
 ##
 ## Additionnal cookies to be sent when requesting the youtube API.
@@ -432,6 +436,15 @@ feed_threads: 1
 ##
 #cache_annotations: false
 
+##
+## Source code URL. If your instance is running a modfied source
+## code, you MUST publish it somewhere and set this option.
+##
+## Accepted values: a string
+## Default: <none>
+##
+#modified_source_code_url: ""
+
 
 
 #########################################
@@ -457,9 +470,9 @@ default_user_preferences:
   ##
   ## Default user interface language (locale).
   ##
-  ## Note: overridin the default (no preferred caption language)
-  ## is not recommended, in order to not penalize people using
-  ## other languages.
+  ## Note: When hosting a public instance, overriding the
+  ## default (english) is not recommended, as it may
+  ## people using other languages.
   ##
   ## Accepted values:
   ##   ar      (Arabic)
@@ -494,6 +507,21 @@ default_user_preferences:
   ## Default: en-US
   ##
   #locale: en-US
+
+  ##
+  ## Default geographical location for content.
+  ##
+  ## Accepted values:
+  ##   AE, AR, AT, AU, AZ, BA, BD, BE, BG, BH, BO, BR, BY, CA, CH, CL, CO, CR,
+  ##   CY, CZ, DE, DK, DO, DZ, EC, EE, EG, ES, FI, FR, GB, GE, GH, GR, GT, HK,
+  ##   HN, HR, HU, ID, IE, IL, IN, IQ, IS, IT, JM, JO, JP, KE, KR, KW, KZ, LB,
+  ##   LI, LK, LT, LU, LV, LY, MA, ME, MK, MT, MX, MY, NG, NI, NL, NO, NP, NZ,
+  ##   OM, PA, PE, PG, PH, PK, PL, PR, PT, PY, QA, RO, RS, RU, SA, SE, SG, SI,
+  ##   SK, SN, SV, TH, TN, TR, TW, TZ, UA, UG, US, UY, VE, VN, YE, ZA, ZW
+  ##
+  ## Default: US
+  ##
+  #region: US
 
   ##
   ## Top 3 prefered languages for video captions.
