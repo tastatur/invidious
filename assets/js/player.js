@@ -38,6 +38,8 @@ embed_url.searchParams.delete('v');
 short_url = location.origin + '/' + video_data.id + embed_url.search;
 embed_url = location.origin + '/embed/' + video_data.id + embed_url.search;
 
+var save_player_pos_key = "save_player_pos";
+
 var shareOptions = {
     socials: ['fbFeed', 'tw', 'reddit', 'email'],
 
@@ -57,6 +59,16 @@ videojs.Hls.xhr.beforeRequest = function(options) {
 
 var player = videojs('player', options);
 
+const storage = (() => {
+    try {
+        if (localStorage.length !== -1) {
+            return localStorage;
+        }
+    } catch (e) {
+        console.info('No storage available: ' + e);
+    }
+    return undefined;
+})();
 
 if (location.pathname.startsWith('/embed/')) {
     player.overlay({
@@ -199,6 +211,32 @@ if (video_data.premiere_timestamp && Math.round(new Date() / 1000) < video_data.
     player.getChild('bigPlayButton').hide();
 }
 
+if (video_data.params.save_player_pos) {
+    const url = new URL(location);
+    const hasTimeParam = url.searchParams.has("t");
+    const remeberedTime = get_video_time();
+    let lastUpdated = 0;
+
+    if(!hasTimeParam) {
+        set_seconds_after_start(remeberedTime);
+    }
+
+    const updateTime = () => {
+        const raw = player.currentTime();
+        const time = Math.floor(raw);
+
+        if(lastUpdated !== time && raw <= video_data.length_seconds - 15) {
+            save_video_time(time);
+            lastUpdated = time;
+        }
+    };
+
+    player.on("timeupdate", updateTime);
+}
+else {
+    remove_all_video_times();
+}
+
 if (video_data.params.autoplay) {
     var bpb = player.getChild('bigPlayButton');
     bpb.hide();
@@ -328,6 +366,65 @@ function skip_seconds(delta) {
         newTime = 0;
     }
     player.currentTime(newTime);
+}
+
+function set_seconds_after_start(delta) {
+    const start = video_data.params.video_start;
+    player.currentTime(start + delta);
+}
+
+function save_video_time(seconds) {
+    const videoId = video_data.id;
+    const all_video_times = get_all_video_times();
+
+    all_video_times[videoId] = seconds;
+
+    set_all_video_times(all_video_times);
+}
+
+function get_video_time() {
+    try {
+        const videoId = video_data.id;
+        const all_video_times = get_all_video_times();
+        const timestamp = all_video_times[videoId];
+
+        return timestamp || 0;
+    }
+    catch {
+        return 0;
+    }
+}
+
+function set_all_video_times(times) {
+    if (storage) {
+        if (times) {
+            try {
+                storage.setItem(save_player_pos_key, JSON.stringify(times));
+            } catch (e) {
+                console.debug('set_all_video_times: ' + e);
+            }
+        } else {
+            storage.removeItem(save_player_pos_key);
+        }
+    }
+}
+
+function get_all_video_times() {
+    if (storage) {
+        const raw = storage.getItem(save_player_pos_key);
+        if (raw !== null) {
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                console.debug('get_all_video_times: ' + e);
+            }
+        }
+    }
+    return {};
+}
+
+function remove_all_video_times() {
+    set_all_video_times(null);
 }
 
 function set_time_percent(percent) {

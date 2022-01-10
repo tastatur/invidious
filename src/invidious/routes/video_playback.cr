@@ -1,7 +1,7 @@
 module Invidious::Routes::VideoPlayback
   # /videoplayback
   def self.get_video_playback(env)
-    locale = LOCALES[env.get("preferences").as(Preferences).locale]?
+    locale = env.get("preferences").as(Preferences).locale
     query_params = env.params.query
 
     fvip = query_params["fvip"]? || "3"
@@ -263,7 +263,7 @@ module Invidious::Routes::VideoPlayback
       haltf env, status_code: 400, response: "TESTING"
     end
 
-    video = get_video(id, PG_DB, region: region)
+    video = get_video(id, region: region)
 
     fmt = video.fmt_stream.find(nil) { |f| f["itag"].as_i == itag } || video.adaptive_fmts.find(nil) { |f| f["itag"].as_i == itag }
     url = fmt.try &.["url"]?.try &.as_s

@@ -246,6 +246,7 @@ struct VideoPreferences
   property video_start : Float64 | Int32
   property volume : Int32
   property vr_mode : Bool
+  property save_player_pos : Bool
 end
 
 struct Video
@@ -275,7 +276,7 @@ struct Video
     end
   end
 
-  def to_json(locale : Hash(String, JSON::Any) | Nil, json : JSON::Builder)
+  def to_json(locale : String?, json : JSON::Builder)
     json.object do
       json.field "type", "video"
 
@@ -475,7 +476,7 @@ struct Video
   end
 
   # TODO: remove the locale and follow the crystal convention
-  def to_json(locale : Hash(String, JSON::Any) | Nil, _json : Nil)
+  def to_json(locale : String?, _json : Nil)
     JSON.build { |json| to_json(locale, json) }
   end
 
@@ -944,7 +945,7 @@ def extract_video_info(video_id : String, proxy_region : String? = nil, context_
   # Description
 
   description_html = video_secondary_renderer.try &.dig?("description", "runs")
-    .try &.as_a.try { |t| content_to_comment_html(t).gsub("\n", "<br/>") }
+    .try &.as_a.try { |t| content_to_comment_html(t) }
 
   params["descriptionHtml"] = JSON::Any.new(description_html || "<p></p>")
 
@@ -992,8 +993,8 @@ def extract_video_info(video_id : String, proxy_region : String? = nil, context_
   return params
 end
 
-def get_video(id, db, refresh = true, region = nil, force_refresh = false)
-  if (video = db.query_one?("SELECT * FROM videos WHERE id = $1", id, as: Video)) && !region
+def get_video(id, refresh = true, region = nil, force_refresh = false)
+  if (video = Invidious::Database::Videos.select(id)) && !region
     # If record was last updated over 10 minutes ago, or video has since premiered,
     # refresh (expire param in response lasts for 6 hours)
     if (refresh &&
@@ -1002,17 +1003,15 @@ def get_video(id, db, refresh = true, region = nil, force_refresh = false)
        force_refresh
       begin
         video = fetch_video(id, region)
-        db.exec("UPDATE videos SET (id, info, updated) = ($1, $2, $3) WHERE id = $1", video.id, video.info.to_json, video.updated)
+        Invidious::Database::Videos.update(video)
       rescue ex
-        db.exec("DELETE FROM videos * WHERE id = $1", id)
+        Invidious::Database::Videos.delete(id)
         raise ex
       end
     end
   else
     video = fetch_video(id, region)
-    if !region
-      db.exec("INSERT INTO videos VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING", video.id, video.info.to_json, video.updated)
-    end
+    Invidious::Database::Videos.insert(video) if !region
   end
 
   return video
@@ -1057,7 +1056,7 @@ def itag_to_metadata?(itag : JSON::Any)
   return VIDEO_FORMATS[itag.to_s]?
 end
 
-def process_continuation(db, query, plid, id)
+def process_continuation(query, plid, id)
   continuation = nil
   if plid
     if index = query["index"]?.try &.to_i?
@@ -1090,6 +1089,7 @@ def process_video_params(query, preferences)
   extend_desc = query["extend_desc"]?.try { |q| (q == "true" || q == "1").to_unsafe }
   volume = query["volume"]?.try &.to_i?
   vr_mode = query["vr_mode"]?.try { |q| (q == "true" || q == "1").to_unsafe }
+  save_player_pos = query["save_player_pos"]?.try { |q| (q == "true" || q == "1").to_unsafe }
 
   if preferences
     # region ||= preferences.region
@@ -1110,6 +1110,7 @@ def process_video_params(query, preferences)
     extend_desc ||= preferences.extend_desc.to_unsafe
     volume ||= preferences.volume
     vr_mode ||= preferences.vr_mode.to_unsafe
+    save_player_pos ||= preferences.save_player_pos.to_unsafe
   end
 
   annotations ||= CONFIG.default_user_preferences.annotations.to_unsafe
@@ -1129,6 +1130,7 @@ def process_video_params(query, preferences)
   extend_desc ||= CONFIG.default_user_preferences.extend_desc.to_unsafe
   volume ||= CONFIG.default_user_preferences.volume
   vr_mode ||= CONFIG.default_user_preferences.vr_mode.to_unsafe
+  save_player_pos ||= CONFIG.default_user_preferences.save_player_pos.to_unsafe
 
   annotations = annotations == 1
   autoplay = autoplay == 1
@@ -1140,6 +1142,7 @@ def process_video_params(query, preferences)
   video_loop = video_loop == 1
   extend_desc = extend_desc == 1
   vr_mode = vr_mode == 1
+  save_player_pos = save_player_pos == 1
 
   if CONFIG.disabled?("dash") && quality == "dash"
     quality = "high"
@@ -1190,6 +1193,7 @@ def process_video_params(query, preferences)
     video_start:        video_start,
     volume:             volume,
     vr_mode:            vr_mode,
+    save_player_pos:    save_player_pos,
   })
 
   return params
