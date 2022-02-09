@@ -123,22 +123,20 @@ def recode_date(time : Time, locale)
   span = Time.utc - time
 
   if span.total_days > 365.0
-    span = translate(locale, "`x` years", (span.total_days.to_i // 365).to_s)
+    return translate_count(locale, "generic_count_years", span.total_days.to_i // 365)
   elsif span.total_days > 30.0
-    span = translate(locale, "`x` months", (span.total_days.to_i // 30).to_s)
+    return translate_count(locale, "generic_count_months", span.total_days.to_i // 30)
   elsif span.total_days > 7.0
-    span = translate(locale, "`x` weeks", (span.total_days.to_i // 7).to_s)
+    return translate_count(locale, "generic_count_weeks", span.total_days.to_i // 7)
   elsif span.total_hours > 24.0
-    span = translate(locale, "`x` days", (span.total_days.to_i).to_s)
+    return translate_count(locale, "generic_count_days", span.total_days.to_i)
   elsif span.total_minutes > 60.0
-    span = translate(locale, "`x` hours", (span.total_hours.to_i).to_s)
+    return translate_count(locale, "generic_count_hours", span.total_hours.to_i)
   elsif span.total_seconds > 60.0
-    span = translate(locale, "`x` minutes", (span.total_minutes.to_i).to_s)
+    return translate_count(locale, "generic_count_minutes", span.total_minutes.to_i)
   else
-    span = translate(locale, "`x` seconds", (span.total_seconds.to_i).to_s)
+    return translate_count(locale, "generic_count_seconds", span.total_seconds.to_i)
   end
-
-  return span
 end
 
 def number_with_separator(number)
@@ -163,11 +161,11 @@ def short_text_to_number(short_text : String) : Int32
 end
 
 def number_to_short_text(number)
-  seperated = number_with_separator(number).gsub(",", ".").split("")
-  text = seperated.first(2).join
+  separated = number_with_separator(number).gsub(",", ".").split("")
+  text = separated.first(2).join
 
-  if seperated[2]? && seperated[2] != "."
-    text += seperated[2]
+  if separated[2]? && separated[2] != "."
+    text += separated[2]
   end
 
   text = text.rchop(".0")
@@ -294,8 +292,8 @@ def parse_range(range)
   end
 
   ranges = range.lchop("bytes=").split(',')
-  ranges.each do |range|
-    start_range, end_range = range.split('-')
+  ranges.each do |r|
+    start_range, end_range = r.split('-')
 
     start_range = start_range.to_i64? || 0_i64
     end_range = end_range.to_i64?
@@ -325,8 +323,8 @@ def fetch_random_instance
   instance_list.each do |data|
     # TODO Check if current URL is onion instance and use .onion types if so.
     if data[1]["type"] == "https"
-      # Instances can have statisitics disabled, which is an requirement of version validation.
-      # as_nil? doesn't exist. Thus we'll have to handle the error rasied if as_nil fails.
+      # Instances can have statistics disabled, which is an requirement of version validation.
+      # as_nil? doesn't exist. Thus we'll have to handle the error raised if as_nil fails.
       begin
         data[1]["stats"].as_nil
         next

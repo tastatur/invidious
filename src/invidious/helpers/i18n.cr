@@ -54,6 +54,14 @@ CONTENT_REGIONS = {
   "YE", "ZA", "ZW",
 }
 
+# Enum for the different types of number formats
+enum NumberFormatting
+  None      # Print the number as-is
+  Separator # Use a separator for thousands
+  Short     # Use short notation (k/M/B)
+  HtmlSpan  # Surround with <span id="count"></span>
+end
+
 def load_all_locales
   locales = {} of String => Hash(String, JSON::Any)
 
@@ -86,8 +94,8 @@ def translate(locale : String?, key : String, text : String | Nil = nil) : Strin
     translation = ""
     match_length = 0
 
-    raw_data.as_h.each do |key, value|
-      if md = text.try &.match(/#{key}/)
+    raw_data.as_h.each do |hash_key, value|
+      if md = text.try &.match(/#{hash_key}/)
         if md[0].size >= match_length
           translation = value.as_s
           match_length = md[0].size
@@ -105,6 +113,42 @@ def translate(locale : String?, key : String, text : String | Nil = nil) : Strin
   end
 
   return translation
+end
+
+def translate_count(locale : String, key : String, count : Int, format = NumberFormatting::None) : String
+  # Fallback on english if locale doesn't exist
+  locale = "en-US" if !LOCALES.has_key?(locale)
+
+  # Retrieve suffix
+  suffix = I18next::Plurals::RESOLVER.get_suffix(locale, count)
+  plural_key = key + suffix
+
+  if LOCALES[locale].has_key?(plural_key)
+    translation = LOCALES[locale][plural_key].as_s
+  else
+    # Try #1: Fallback to singular in the same locale
+    singular_suffix = I18next::Plurals::RESOLVER.get_suffix(locale, 1)
+
+    if LOCALES[locale].has_key?(key + singular_suffix)
+      translation = LOCALES[locale][key + singular_suffix].as_s
+    elsif locale != "en-US"
+      # Try #2: Fallback to english
+      translation = translate_count("en-US", key, count)
+    else
+      # Return key if we're already in english, as the translation is missing
+      LOGGER.warn("i18n: Missing translation key \"#{key}\"")
+      return key
+    end
+  end
+
+  case format
+  when .separator? then count_txt = number_with_separator(count)
+  when .short?     then count_txt = number_to_short_text(count)
+  when .html_span? then count_txt = "<span id=\"count\">" + count.to_s + "</span>"
+  else                  count_txt = count.to_s
+  end
+
+  return translation.gsub("{{count}}", count_txt)
 end
 
 def translate_bool(locale : String?, translation : Bool)

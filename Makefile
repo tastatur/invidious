@@ -62,7 +62,8 @@ test:
 	crystal spec
 
 verify:
-	crystal build src/invidious.cr --no-codegen --progress --stats --error-trace
+	crystal build src/invidious.cr -Dskip_videojs_download \
+	  --no-codegen --progress --stats --error-trace
 
 
 # -----------------------
@@ -106,7 +107,7 @@ help:
 	echo "Build options available for this Makefile:"
 	echo ""
 	echo "RELEASE          Make a release build      (Default: 1)"
-	echo "STATIC           Link librariess tatically (Default: 1)"
+	echo "STATIC           Link libraries statically (Default: 0)"
 	echo ""
 	echo "DISABLE_QUIC     Disable support for QUIC  (Default: 0)"
 	echo "NO_DBG_SYMBOLS   Strip debug symbols       (Default: 0)"
