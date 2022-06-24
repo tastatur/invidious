@@ -48,7 +48,7 @@
   </a>
   <br>
   <a rel="me" href="https://social.tchncs.de/@invidious">
-  <img alt="Mastodon: @invidious@social.tchncs.de" src="https://img.shields.io/badge/Mastodon-%40invidious%40social.tchncs.de-darkgreen">
+  <img alt="Fediverse: @invidious@social.tchncs.de" src="https://img.shields.io/badge/Fediverse-%40invidious%40social.tchncs.de-darkgreen">
   </a>
   <br>
   <a href="https://invidious.io/contact/">
@@ -151,6 +151,8 @@ Weblate also allows you to log-in with major SSO providers like Github, Gitlab, 
 - [MusicPiped](https://github.com/deep-gaurav/MusicPiped): A material design music player that streams music from YouTube.
 - [HoloPlay](https://github.com/stephane-r/HoloPlay): Funny Android application connecting on Invidious API's with search, playlists and favorites.
 - [WatchTube](https://github.com/WatchTubeTeam/WatchTube): Powerful YouTube client for Apple Watch.
+- [Yattee](https://github.com/yattee/yattee): Alternative YouTube frontend for iPhone, iPad, Mac and Apple TV.
+- [TubiTui](https://codeberg.org/777/TubiTui): A lightweight, libre, TUI-based YouTube client.
 
 
 ## Liability
