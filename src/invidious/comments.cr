@@ -95,7 +95,7 @@ def fetch_youtube_comments(id, cursor, format, locale, thin_mode, region, sort_b
     contents = body["contents"]?
     header = body["header"]?
   else
-    raise InfoException.new("Could not fetch comments")
+    raise NotFoundException.new("Comments not found.")
   end
 
   if !contents
@@ -201,15 +201,6 @@ def fetch_youtube_comments(id, cursor, format, locale, thin_mode, region, sort_b
               end
 
               if node_replies && !response["commentRepliesContinuation"]?
-                if node_replies["moreText"]?
-                  reply_count = (node_replies["moreText"]["simpleText"]? || node_replies["moreText"]["runs"]?.try &.[0]?.try &.["text"]?)
-                    .try &.as_s.gsub(/\D/, "").to_i? || 1
-                elsif node_replies["viewReplies"]?
-                  reply_count = node_replies["viewReplies"]["buttonRenderer"]["text"]?.try &.["runs"][1]?.try &.["text"]?.try &.as_s.to_i? || 1
-                else
-                  reply_count = 1
-                end
-
                 if node_replies["continuations"]?
                   continuation = node_replies["continuations"]?.try &.as_a[0]["nextContinuationData"]["continuation"].as_s
                 elsif node_replies["contents"]?
@@ -219,7 +210,7 @@ def fetch_youtube_comments(id, cursor, format, locale, thin_mode, region, sort_b
 
                 json.field "replies" do
                   json.object do
-                    json.field "replyCount", reply_count
+                    json.field "replyCount", node_comment["replyCount"]? || 1
                     json.field "continuation", continuation
                   end
                 end
@@ -290,7 +281,7 @@ def fetch_reddit_comments(id, sort_by = "confidence")
 
     thread = result[0].data.as(RedditListing).children[0].data.as(RedditLink)
   else
-    raise InfoException.new("Could not fetch comments")
+    raise NotFoundException.new("Comments not found.")
   end
 
   client.close

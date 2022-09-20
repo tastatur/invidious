@@ -17,6 +17,7 @@ var options = {
             'remainingTimeDisplay',
             'Spacer',
             'captionsButton',
+            'audioTrackButton',
             'qualitySelector',
             'playbackRateMenuButton',
             'fullscreenToggle'
@@ -67,6 +68,7 @@ player.on('error', function () {
         // add local=true to all current sources
         player.src(player.currentSources().map(function (source) {
             source.src += '&local=true';
+            return source;
         }));
     } else if (reloadMakesSense) {
         setTimeout(function () {
@@ -145,11 +147,12 @@ function isMobile() {
 }
 
 if (isMobile()) {
-    player.mobileUi();
+    player.mobileUi({ touchControls: { seekSeconds: 5 * player.playbackRate() } });
 
     var buttons = ['playToggle', 'volumePanel', 'captionsButton'];
 
-    if (video_data.params.quality !== 'dash') buttons.push('qualitySelector');
+    if (!video_data.params.listen && video_data.params.quality === 'dash') buttons.push('audioTrackButton');
+    if (video_data.params.listen || video_data.params.quality !== 'dash') buttons.push('qualitySelector');
 
     // Create new control bar object for operation buttons
     const ControlBar = videojs.getComponent('controlBar');
@@ -176,7 +179,7 @@ if (isMobile()) {
         var share_element = document.getElementsByClassName('vjs-share-control')[0];
         operations_bar_element.append(share_element);
 
-        if (video_data.params.quality === 'dash') {
+        if (!video_data.params.listen && video_data.params.quality === 'dash') {
             var http_source_selector = document.getElementsByClassName('vjs-http-source-selector vjs-menu-button')[0];
             operations_bar_element.append(http_source_selector);
         }
@@ -256,7 +259,7 @@ function updateCookie(newVolume, newSpeed) {
 
     // Set expiration in 2 year
     var date = new Date();
-    date.setTime(date.getTime() + 63115200);
+    date.setFullYear(date.getFullYear() + 2);
 
     var ipRegex = /^((\d+\.){3}\d+|[A-Fa-f0-9]*:[A-Fa-f0-9:]*:[A-Fa-f0-9:]+)$/;
     var domainUsed = location.hostname;
@@ -265,8 +268,10 @@ function updateCookie(newVolume, newSpeed) {
     if (domainUsed.charAt(0) !== '.' && !ipRegex.test(domainUsed) && domainUsed !== 'localhost')
         domainUsed = '.' + location.hostname;
 
-    document.cookie = 'PREFS=' + cookieData + '; SameSite=Strict; path=/; domain=' +
-        domainUsed + '; expires=' + date.toGMTString() + ';';
+    var secure = location.protocol.startsWith("https") ? " Secure;" : "";
+
+    document.cookie = 'PREFS=' + cookieData + '; SameSite=Lax; path=/; domain=' +
+        domainUsed + '; expires=' + date.toGMTString() + ';' + secure;
 
     video_data.params.volume = volumeValue;
     video_data.params.speed = speedValue;
@@ -274,6 +279,9 @@ function updateCookie(newVolume, newSpeed) {
 
 player.on('ratechange', function () {
     updateCookie(null, player.playbackRate());
+    if (isMobile()) {
+        player.mobileUi({ touchControls: { seekSeconds: 5 * player.playbackRate() } });
+    }
 });
 
 player.on('volumechange', function () {
@@ -673,7 +681,12 @@ if (player.share) player.share(shareOptions);
 // show the preferred caption by default
 if (player_data.preferred_caption_found) {
     player.ready(function () {
-        player.textTracks()[1].mode = 'showing';
+        if (!video_data.params.listen && video_data.params.quality === 'dash') {
+            // play.textTracks()[0] on DASH mode is showing some debug messages
+            player.textTracks()[1].mode = 'showing';
+        } else {
+            player.textTracks()[0].mode = 'showing';
+        }
     });
 }
 
