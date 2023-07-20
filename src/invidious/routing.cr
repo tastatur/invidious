@@ -57,7 +57,6 @@ module Invidious::Routing
     get "/login", Routes::Login, :login_page
     post "/login", Routes::Login, :login
     post "/signout", Routes::Login, :signout
-    get "/Captcha", Routes::Login, :captcha
 
     # User preferences
     get "/preferences", Routes::PreferencesRoute, :show
@@ -119,6 +118,8 @@ module Invidious::Routing
     get "/channel/:ucid/videos", Routes::Channels, :videos
     get "/channel/:ucid/shorts", Routes::Channels, :shorts
     get "/channel/:ucid/streams", Routes::Channels, :streams
+    get "/channel/:ucid/podcasts", Routes::Channels, :podcasts
+    get "/channel/:ucid/releases", Routes::Channels, :releases
     get "/channel/:ucid/playlists", Routes::Channels, :playlists
     get "/channel/:ucid/community", Routes::Channels, :community
     get "/channel/:ucid/channels", Routes::Channels, :channels
@@ -229,6 +230,9 @@ module Invidious::Routing
       get "/api/v1/channels/:ucid", {{namespace}}::Channels, :home
       get "/api/v1/channels/:ucid/shorts", {{namespace}}::Channels, :shorts
       get "/api/v1/channels/:ucid/streams", {{namespace}}::Channels, :streams
+      get "/api/v1/channels/:ucid/podcasts", {{namespace}}::Channels, :podcasts
+      get "/api/v1/channels/:ucid/releases", {{namespace}}::Channels, :releases
+
       get "/api/v1/channels/:ucid/channels", {{namespace}}::Channels, :channels
 
       {% for route in {"videos", "latest", "playlists", "community", "search"} %}
@@ -243,6 +247,7 @@ module Invidious::Routing
       # Search
       get "/api/v1/search", {{namespace}}::Search, :search
       get "/api/v1/search/suggestions", {{namespace}}::Search, :search_suggestions
+      get "/api/v1/hashtag/:hashtag", {{namespace}}::Search, :hashtag
 
       # Authenticated
 

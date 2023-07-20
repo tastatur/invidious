@@ -18,6 +18,7 @@ private ITEM_PARSERS = {
   Parsers::CategoryRendererParser,
   Parsers::RichItemRendererParser,
   Parsers::ReelItemRendererParser,
+  Parsers::ItemSectionRendererParser,
   Parsers::ContinuationItemRendererParser,
 }
 
@@ -267,7 +268,7 @@ private module Parsers
     end
 
     private def self.parse(item_contents, author_fallback)
-      title = item_contents["title"]["simpleText"]?.try &.as_s || ""
+      title = extract_text(item_contents["title"]) || ""
       plid = item_contents["playlistId"]?.try &.as_s || ""
 
       video_count = HelperExtractors.get_video_count(item_contents)
@@ -377,12 +378,38 @@ private module Parsers
     end
   end
 
+  # Parses an InnerTube itemSectionRenderer into a SearchVideo.
+  # Returns nil when the given object isn't a ItemSectionRenderer
+  #
+  # A itemSectionRenderer seems to be a simple wrapper for a videoRenderer or a playlistRenderer, used
+  # by the result page for channel searches. It is located inside a continuationItems
+  # container.It is very similar to RichItemRendererParser
+  #
+  module ItemSectionRendererParser
+    def self.process(item : JSON::Any, author_fallback : AuthorFallback)
+      if item_contents = item.dig?("itemSectionRenderer", "contents", 0)
+        return self.parse(item_contents, author_fallback)
+      end
+    end
+
+    private def self.parse(item_contents, author_fallback)
+      child = VideoRendererParser.process(item_contents, author_fallback)
+      child ||= PlaylistRendererParser.process(item_contents, author_fallback)
+
+      return child
+    end
+
+    def self.parser_name
+      return {{@type.name}}
+    end
+  end
+
   # Parses an InnerTube richItemRenderer into a SearchVideo.
   # Returns nil when the given object isn't a RichItemRenderer
   #
   # A richItemRenderer seems to be a simple wrapper for a videoRenderer, used
-  # by the result page for hashtags. It is located inside a continuationItems
-  # container.
+  # by the result page for hashtags and for the podcast tab on channels.
+  # It is located inside a continuationItems container for hashtags.
   #
   module RichItemRendererParser
     def self.process(item : JSON::Any, author_fallback : AuthorFallback)
@@ -394,6 +421,7 @@ private module Parsers
     private def self.parse(item_contents, author_fallback)
       child = VideoRendererParser.process(item_contents, author_fallback)
       child ||= ReelItemRendererParser.process(item_contents, author_fallback)
+      child ||= PlaylistRendererParser.process(item_contents, author_fallback)
       return child
     end
 
@@ -423,44 +451,43 @@ private module Parsers
         "overlay", "reelPlayerOverlayRenderer"
       )
 
-      # Sometimes, the "reelPlayerOverlayRenderer" object is missing the
-      # important part of the response. We use this exception to tell
-      # the calling function to fetch the content again.
-      if !reel_player_overlay.as_h.has_key?("reelPlayerHeaderSupportedRenderers")
-        raise RetryOnceException.new
+      if video_details_container = reel_player_overlay.dig?(
+           "reelPlayerHeaderSupportedRenderers",
+           "reelPlayerHeaderRenderer"
+         )
+        # Author infos
+
+        author = video_details_container
+          .dig?("channelTitleText", "runs", 0, "text")
+          .try &.as_s || author_fallback.name
+
+        ucid = video_details_container
+          .dig?("channelNavigationEndpoint", "browseEndpoint", "browseId")
+          .try &.as_s || author_fallback.id
+
+        # Title & publication date
+
+        title = video_details_container.dig?("reelTitleText")
+          .try { |t| extract_text(t) } || ""
+
+        published = video_details_container
+          .dig?("timestampText", "simpleText")
+          .try { |t| decode_date(t.as_s) } || Time.utc
+
+        # View count
+        view_count_text = video_details_container.dig?("viewCountText", "simpleText")
+      else
+        author = author_fallback.name
+        ucid = author_fallback.id
+        published = Time.utc
+        title = item_contents.dig?("headline", "simpleText").try &.as_s || ""
       end
-
-      video_details_container = reel_player_overlay.dig(
-        "reelPlayerHeaderSupportedRenderers",
-        "reelPlayerHeaderRenderer"
-      )
-
-      # Author infos
-
-      author = video_details_container
-        .dig?("channelTitleText", "runs", 0, "text")
-        .try &.as_s || author_fallback.name
-
-      ucid = video_details_container
-        .dig?("channelNavigationEndpoint", "browseEndpoint", "browseId")
-        .try &.as_s || author_fallback.id
-
-      # Title & publication date
-
-      title = video_details_container.dig?("reelTitleText")
-        .try { |t| extract_text(t) } || ""
-
-      published = video_details_container
-        .dig?("timestampText", "simpleText")
-        .try { |t| decode_date(t.as_s) } || Time.utc
-
       # View count
 
       # View count used to be in the reelWatchEndpoint, but that changed?
-      view_count_text = item_contents.dig?("viewCountText", "simpleText")
-      view_count_text ||= video_details_container.dig?("viewCountText", "simpleText")
+      view_count_text ||= item_contents.dig?("viewCountText", "simpleText")
 
-      view_count = view_count_text.try &.as_s.gsub(/\D+/, "").to_i64? || 0_i64
+      view_count = short_text_to_number(view_count_text.try &.as_s || "0")
 
       # Duration
 
@@ -581,19 +608,25 @@ private module Extractors
     private def self.unpack_section_list(contents)
       raw_items = [] of JSON::Any
 
-      contents.as_a.each do |renderer_container|
-        renderer_container_contents = renderer_container["itemSectionRenderer"]["contents"][0]
-
-        # Category extraction
-        if items_container = renderer_container_contents["shelfRenderer"]?
-          raw_items << renderer_container_contents
-          next
-        elsif items_container = renderer_container_contents["gridRenderer"]?
+      contents.as_a.each do |item|
+        if item_section_content = item.dig?("itemSectionRenderer", "contents")
+          raw_items += self.unpack_item_section(item_section_content)
         else
-          items_container = renderer_container_contents
+          raw_items << item
         end
+      end
 
-        items_container["items"]?.try &.as_a.each do |item|
+      return raw_items
+    end
+
+    private def self.unpack_item_section(contents)
+      raw_items = [] of JSON::Any
+
+      contents.as_a.each do |item|
+        # Category extraction
+        if container = item.dig?("gridRenderer", "items") || item.dig?("items")
+          raw_items += container.as_a
+        else
           raw_items << item
         end
       end
@@ -773,6 +806,7 @@ end
 def extract_items(initial_data : InitialData, &block)
   if unpackaged_data = initial_data["contents"]?.try &.as_h
   elsif unpackaged_data = initial_data["response"]?.try &.as_h
+  elsif unpackaged_data = initial_data.dig?("onResponseReceivedActions", 1).try &.as_h
   elsif unpackaged_data = initial_data.dig?("onResponseReceivedActions", 0).try &.as_h
   else
     unpackaged_data = initial_data

@@ -78,7 +78,11 @@ def extract_video_info(video_id : String, proxy_region : String? = nil)
   elsif video_id != player_response.dig("videoDetails", "videoId")
     # YouTube may return a different video player response than expected.
     # See: https://github.com/TeamNewPipe/NewPipe/issues/8713
-    raise VideoNotAvailableException.new("The video returned by YouTube isn't the requested one. (WEB client)")
+    # Line to be reverted if one day we solve the video not available issue.
+    return {
+      "version" => JSON::Any.new(Video::SCHEMA_VERSION.to_i64),
+      "reason"  => JSON::Any.new("Can't load the video on this Invidious instance. YouTube is currently trying to block Invidious instances. <a href=\"https://github.com/iv-org/invidious/issues/3822\">Click here for more info about the issue.</a>"),
+    }
   else
     reason = nil
   end
@@ -284,8 +288,10 @@ def parse_video_info(video_id : String, player_response : Hash(String, JSON::Any
   description = microformat.dig?("description", "simpleText").try &.as_s || ""
   short_description = player_response.dig?("videoDetails", "shortDescription")
 
-  description_html = video_secondary_renderer.try &.dig?("description", "runs")
-    .try &.as_a.try { |t| content_to_comment_html(t, video_id) }
+  # description_html = video_secondary_renderer.try &.dig?("description", "runs")
+  #  .try &.as_a.try { |t| content_to_comment_html(t, video_id) }
+
+  description_html = parse_description(video_secondary_renderer.try &.dig?("attributedDescription"), video_id)
 
   # Video metadata
 
@@ -330,7 +336,10 @@ def parse_video_info(video_id : String, player_response : Hash(String, JSON::Any
     # Used when the video has multiple songs
     if song_title = music_desc.dig?("carouselLockupRenderer", "videoLockup", "compactVideoRenderer", "title")
       # "simpleText" for plain text / "runs" when song has a link
-      song = song_title["simpleText"]? || song_title.dig("runs", 0, "text")
+      song = song_title["simpleText"]? || song_title.dig?("runs", 0, "text")
+
+      # some videos can have empty tracks. See: https://www.youtube.com/watch?v=eBGIQ7ZuuiU
+      next if !song
     end
 
     music_desc.dig?("carouselLockupRenderer", "infoRows").try &.as_a.each do |desc|
